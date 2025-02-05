@@ -17,6 +17,9 @@ export class CoverProcessor extends BaseProcessor {
     
     // Затем создадим HTML и CSS для обложки
     await this.createCoverFiles();
+    
+    // Обновим content.opf для обложки
+    await this.updateContentOpfForCover();
   }
 
   private async findAndProcessArtwork(dir: string) {
@@ -58,5 +61,27 @@ export class CoverProcessor extends BaseProcessor {
       console.error('Error creating cover files:', error);
       throw error;
     }
+  }
+
+  private async updateContentOpfForCover() {
+    const contentOpfPath = `${this.tempDir}/${PATHS.CONTENT_OPF}`;
+    const content = await Deno.readTextFile(contentOpfPath);
+    let updatedContent = content;
+
+    // Добавляем мета-тег обложки
+    if (!content.includes('<meta name="cover"')) {
+      updatedContent = updatedContent.replace(
+        /<metadata([^>]*)>/i,
+        '<metadata$1><meta name="cover" content="cover-image"/>',
+      );
+    } else {
+      updatedContent = updatedContent.replace(
+        /<meta name="cover" content="[^"]*"\s*\/>/,
+        '<meta name="cover" content="cover-image"/>',
+      );
+    }
+
+    await Deno.writeTextFile(contentOpfPath, updatedContent);
+    this.log('Content.opf updated with cover information');
   }
 }

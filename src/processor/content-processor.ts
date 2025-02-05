@@ -24,19 +24,6 @@ export class ContentProcessor extends BaseProcessor {
       }
     }
 
-    // Update meta tag without лишних пробелов и переносов строк
-    if (!content.includes('<meta name="cover"')) {
-      updatedContent = updatedContent.replace(
-        /<metadata([^>]*)>/i,
-        '<metadata$1><meta name="cover" content="cover-image"/>',
-      );
-    } else {
-      updatedContent = updatedContent.replace(
-        /<meta name="cover" content="[^"]*"\s*\/>/,
-        '<meta name="cover" content="cover-image"/>',
-      );
-    }
-
     // Удаляем пробелы и переносы строк между тегами в metadata
     updatedContent = updatedContent.replace(
       /(<metadata[^>]*>)([\s\S]*?)(<\/metadata>)/i,
