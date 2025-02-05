@@ -1,22 +1,14 @@
 import { copyDirectory } from '../utils/fs.ts';
 import {
-  METADATA_PATTERNS,
-  PATHS,
-  SANITIZE_PATTERNS,
-  SANITIZE_REPLACEMENTS,
   TEMP_DIR_PREFIX,
 } from '../constants/paths.ts';
 
 import { ContentProcessor } from './content-processor.ts';
 import { CoverProcessor } from './cover-processor.ts';
 import { ArtworkProcessor } from './artwork-processor.ts';
+import { MetadataProcessor } from './metadata-processor.ts';
 
 // Types
-export interface BookInfo {
-  title: string;
-  author: string;
-}
-
 export interface EpubProcessorOptions {
   sourcePath: string;
   verbose?: boolean;
@@ -37,6 +29,7 @@ export class EpubProcessor {
   private contentProcessor?: ContentProcessor;
   private coverProcessor?: CoverProcessor;
   private artworkProcessor?: ArtworkProcessor;
+  private metadataProcessor?: MetadataProcessor;
 
   constructor(options: EpubProcessorOptions) {
     this.sourcePath = options.sourcePath;
@@ -49,6 +42,7 @@ export class EpubProcessor {
     this.contentProcessor = new ContentProcessor(this.tempDir);
     this.coverProcessor = new CoverProcessor(this.tempDir);
     this.artworkProcessor = new ArtworkProcessor(this.tempDir, this.log.bind(this));
+    this.metadataProcessor = new MetadataProcessor(this.tempDir);
   }
 
   private log(message: string) {
@@ -57,48 +51,10 @@ export class EpubProcessor {
     }
   }
 
-  private async getBookInfo(): Promise<BookInfo> {
-    const contentOpfPath = `${this.tempDir}/${PATHS.CONTENT_OPF}`;
-    try {
-      const content = await Deno.readTextFile(contentOpfPath);
-      const titleMatch = content.match(METADATA_PATTERNS.TITLE);
-      const authorMatch = content.match(METADATA_PATTERNS.AUTHOR);
-
-      if (!titleMatch || !authorMatch) {
-        throw new Error('Missing title or author in content.opf');
-      }
-
-      return {
-        title: titleMatch[1].trim(),
-        author: authorMatch[1].trim(),
-      };
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        throw new Error(`${PATHS.CONTENT_OPF} not found`);
-      }
-      throw error;
-    }
-  }
-
   private async createEpub(): Promise<string> {
-    const { title, author } = await this.getBookInfo();
-
-    const sanitizeString = (str: string) => {
-      return str
-        .replace(SANITIZE_PATTERNS.HTML_ENTITIES, SANITIZE_REPLACEMENTS.AMP)
-        .replace(SANITIZE_PATTERNS.SPECIAL_CHARS, SANITIZE_REPLACEMENTS.SPECIAL)
-        .replace(SANITIZE_PATTERNS.MULTIPLE_UNDERSCORES, SANITIZE_REPLACEMENTS.MULTIPLE)
-        .replace(SANITIZE_PATTERNS.TRIM_UNDERSCORES, SANITIZE_REPLACEMENTS.TRIM);
-    };
-
-    const safeTitle = sanitizeString(title);
-    const safeAuthor = sanitizeString(author);
-
-    const sourceDir = Deno.realPathSync(this.sourcePath).replace(
-      /\/[^/]+$/,
-      '',
-    );
-    const epubPath = `${sourceDir}/${safeAuthor}-${safeTitle}.epub`;
+    const bookInfo = await this.metadataProcessor!.getBookInfo();
+    const sourceDir = Deno.realPathSync(this.sourcePath).replace(/\/[^/]+$/, '');
+    const epubPath = this.metadataProcessor!.getOutputPath(bookInfo, sourceDir);
 
     const currentDir = Deno.cwd();
     Deno.chdir(this.tempDir);
