@@ -154,13 +154,34 @@ async function updateContentOpf(basePath: string) {
   }
 }
 
-async function createEpub(basePath: string) {
-  // Получаем абсолютный путь к исходному файлу
+async function getBookInfo(basePath: string) {
+  const contentOpfPath = `${basePath}/OEBPS/content.opf`;
+  try {
+    const content = await Deno.readTextFile(contentOpfPath);
+    
+    // Ищем название книги
+    const titleMatch = content.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/);
+    const title = titleMatch ? titleMatch[1].trim() : "unknown";
+    
+    // Ищем автора
+    const authorMatch = content.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/);
+    const author = authorMatch ? authorMatch[1].trim() : "unknown";
+    
+    return { title, author };
+  } catch (error) {
+    console.error("Ошибка при чтении метаданных книги:", error);
+    return { title: "unknown", author: "unknown" };
+  }
+}
 
-  const sourcePath = Deno.args[0];
-  console.log(sourcePath);
-  // Создаем имя выходного файла на том же уровне
-  const epubPath = "../" + sourcePath + "-converted.epub";
+async function createEpub(basePath: string) {
+  // Получаем информацию о книге
+  const { title, author } = await getBookInfo(basePath);
+  
+  // Создаем безопасное имя файла (убираем недопустимые символы)
+  const safeTitle = title.replace(/[^a-zA-Z0-9]/g, "_");
+  const safeAuthor = author.replace(/[^a-zA-Z0-9]/g, "_");
+  const epubPath = `../${safeAuthor}-${safeTitle}.epub`;
 
   try {
     // Сначала перейдем в рабочую директорию
