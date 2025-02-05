@@ -5,6 +5,7 @@ import {
 } from "jsr:@std/assert";
 import { EpubProcessor, EpubProcessorOptions } from "./epub-deapplefier.ts";
 import { copyDirectory, ensureDir } from "./utils.ts";
+import { PATHS, TEST_DIR_PREFIX } from "./constants.ts";
 
 // Подготовка тестовых данных
 async function createTestEpub(): Promise<string> {

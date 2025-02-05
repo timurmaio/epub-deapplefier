@@ -1,4 +1,15 @@
 import { copyDirectory, ensureDir } from "./utils.ts";
+import {
+  PATHS,
+  TEMP_DIR_PREFIX,
+  XML_MARKERS,
+  METADATA_PATTERNS,
+  CONTENT_OPF_UPDATES,
+  SANITIZE_PATTERNS,
+  SANITIZE_REPLACEMENTS,
+} from "./constants.ts";
+
+import { HTML_TEMPLATES, CSS_TEMPLATES } from "./templates.ts";
 
 // Типы
 export interface BookInfo {
@@ -38,11 +49,11 @@ export class EpubProcessor {
   }
 
   private async getBookInfo(): Promise<BookInfo> {
-    const contentOpfPath = `${this.tempDir}/OEBPS/content.opf`;
+    const contentOpfPath = `${this.tempDir}/${PATHS.CONTENT_OPF}`;
     try {
       const content = await Deno.readTextFile(contentOpfPath);
-      const titleMatch = content.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/);
-      const authorMatch = content.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/);
+      const titleMatch = content.match(METADATA_PATTERNS.TITLE);
+      const authorMatch = content.match(METADATA_PATTERNS.AUTHOR);
 
       if (!titleMatch || !authorMatch) {
         throw new Error("Missing title or author in content.opf");
@@ -54,7 +65,7 @@ export class EpubProcessor {
       };
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
-        throw new Error("content.opf not found");
+        throw new Error(`${PATHS.CONTENT_OPF} not found`);
       }
       throw error;
     }
@@ -66,33 +77,21 @@ export class EpubProcessor {
 
       if (entry.isDirectory) {
         await this.processITunesArtwork(path);
-      } else if (entry.name === "iTunesArtwork") {
-        const imagesPath = `${this.tempDir}/OEBPS/images`;
-        await ensureDir(`${this.tempDir}/OEBPS`);
-        await ensureDir(imagesPath);
-        await Deno.copyFile(path, `${imagesPath}/cover.jpg`);
+      } else if (entry.name === PATHS.ITUNES_ARTWORK) {
+        await ensureDir(`${this.tempDir}/${PATHS.OEBPS}`);
+        await ensureDir(`${this.tempDir}/${PATHS.IMAGES}`);
+        await Deno.copyFile(path, `${this.tempDir}/${PATHS.COVER_IMAGE}`);
         await Deno.remove(path);
-        this.log("iTunesArtwork обработан");
+        this.log(`${PATHS.ITUNES_ARTWORK} обработан`);
       }
     }
   }
 
   private async createCoverHtml() {
-    const cssPath = `${this.tempDir}/OEBPS/style.css`;
-    const coverStyles = `
-body.cover {
-  margin: 0px;
-  oeb-column-number: 1;
-  padding: 0px;
-}
-
-svg.cover-svg {
-  height: 100%;
-  width: 100%;
-}`;
+    const cssPath = `${this.tempDir}/${PATHS.STYLE_CSS}`;
 
     try {
-      await ensureDir(`${this.tempDir}/OEBPS`);
+      await ensureDir(`${this.tempDir}/${PATHS.OEBPS}`);
       let existingCss = "";
       try {
         existingCss = await Deno.readTextFile(cssPath);
@@ -103,25 +102,10 @@ svg.cover-svg {
       }
 
       if (!existingCss.includes('body.cover')) {
-        await Deno.writeTextFile(cssPath, existingCss + '\n\n' + coverStyles);
+        await Deno.writeTextFile(cssPath, existingCss + '\n\n' + CSS_TEMPLATES.COVER);
       }
 
-      const coverHtml = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-<title/>
-<link rel="stylesheet" href="style.css" type="text/css"/>
-<link rel="stylesheet" href="style.css" type="text/css"/>
-</head>
-<body class="cover">
-<svg xmlns="http://www.w3.org/2000/svg" class="cover-svg" viewBox="0 0 600 852">
-<image height="852" xlink:href="images/cover.jpg" width="600" xmlns:xlink="http://www.w3.org/1999/xlink"/>
-</svg>
-</body>
-</html>`;
-
-      await Deno.writeTextFile(`${this.tempDir}/OEBPS/cover.xhtml`, coverHtml);
+      await Deno.writeTextFile(`${this.tempDir}/${PATHS.COVER_XHTML}`, HTML_TEMPLATES.COVER);
     } catch (error) {
       console.error('Error creating cover files:', error);
       throw error;
@@ -129,44 +113,17 @@ svg.cover-svg {
   }
 
   private async updateContentOpf() {
-    const contentOpfPath = `${this.tempDir}/OEBPS/content.opf`;
+    const contentOpfPath = `${this.tempDir}/${PATHS.CONTENT_OPF}`;
     const content = await Deno.readTextFile(contentOpfPath);
     
-    // Проверяем, что это валидный XML
-    if (!content.includes('<?xml') || !content.includes('<package')) {
+    if (!content.includes(XML_MARKERS.XML_DECLARATION) || 
+        !content.includes(XML_MARKERS.PACKAGE_TAG)) {
       throw new Error("Invalid content.opf format");
     }
 
     let updatedContent = content;
 
-    // Добавляем необходимые элементы в manifest и metadata
-    const updates = [
-      {
-        check: 'href="style.css"',
-        pattern: /<manifest>/i,
-        replacement:
-          '<manifest>\n    <item id="css" href="style.css" media-type="text/css"/>',
-      },
-      {
-        check: 'properties="cover-image"',
-        pattern: /<manifest>/i,
-        replacement:
-          '<manifest>\n    <item id="cover-image" properties="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>',
-      },
-      {
-        check: 'id="cover-html"',
-        pattern: /<manifest>/i,
-        replacement:
-          '<manifest>\n    <item id="cover-html" href="cover.xhtml" media-type="application/xhtml+xml"/>',
-      },
-      {
-        check: '<itemref idref="cover-html"',
-        pattern: /<spine[^>]*>/i,
-        replacement: '$&\n    <itemref idref="cover-html"/>',
-      },
-    ];
-
-    for (const update of updates) {
+    for (const update of CONTENT_OPF_UPDATES) {
       if (!updatedContent.includes(update.check)) {
         updatedContent = updatedContent.replace(
           update.pattern,
@@ -194,13 +151,12 @@ svg.cover-svg {
   private async createEpub(): Promise<string> {
     const { title, author } = await this.getBookInfo();
     
-    // Более предсказуемая замена специальных символов
     const sanitizeString = (str: string) => {
       return str
-        .replace(/&amp;/g, '_and_')  // Сначала обрабатываем HTML entities
-        .replace(/[^a-zA-Z0-9]/g, '_') // Затем все остальные спецсимволы
-        .replace(/_+/g, '_')  // Заменяем множественные _ на одинарный
-        .replace(/^_|_$/g, ''); // Убираем _ в начале и конце
+        .replace(SANITIZE_PATTERNS.HTML_ENTITIES, SANITIZE_REPLACEMENTS.AMP)
+        .replace(SANITIZE_PATTERNS.SPECIAL_CHARS, SANITIZE_REPLACEMENTS.SPECIAL)
+        .replace(SANITIZE_PATTERNS.MULTIPLE_UNDERSCORES, SANITIZE_REPLACEMENTS.MULTIPLE)
+        .replace(SANITIZE_PATTERNS.TRIM_UNDERSCORES, SANITIZE_REPLACEMENTS.TRIM);
     };
 
     const safeTitle = sanitizeString(title);
@@ -233,7 +189,7 @@ svg.cover-svg {
   }
 
   async process(): Promise<ProcessResult> {
-    this.tempDir = await Deno.makeTempDir({ prefix: "epub-deapplefier-" });
+    this.tempDir = await Deno.makeTempDir({ prefix: TEMP_DIR_PREFIX });
 
     try {
       await copyDirectory(this.sourcePath, this.tempDir);
