@@ -1,32 +1,84 @@
 import { assert, assertExists } from 'jsr:@std/assert';
 import { EpubProcessor, EpubProcessorOptions } from '../../src/processor/epub-processor.ts';
 import { ensureDir } from '../../src/utils/fs.ts';
+import { validateEpub } from '../../src/utils/epub-validator.ts';
 
 // Test data preparation
 async function createTestEpub(): Promise<string> {
   const testDir = await Deno.makeTempDir({ prefix: 'epub-test-' });
 
   // Create basic EPUB structure
+  await ensureDir(`${testDir}/META-INF`);
   await ensureDir(`${testDir}/OEBPS`);
   await ensureDir(`${testDir}/OEBPS/images`);
 
-  // Create content.opf
+  // Create container.xml
+  const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`;
+
+  await Deno.writeTextFile(`${testDir}/META-INF/container.xml`, containerXml);
+
+  // Create toc.xhtml
+  const tocXhtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+  <title>Table of Contents</title>
+</head>
+<body>
+  <nav epub:type="toc" id="toc">
+    <h1>Table of Contents</h1>
+    <ol>
+      <li><a href="cover.xhtml">Cover</a></li>
+    </ol>
+  </nav>
+</body>
+</html>`;
+
+  await Deno.writeTextFile(`${testDir}/OEBPS/toc.xhtml`, tocXhtml);
+
+  // Create content.opf with required metadata and nav
   const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
-<package version="3.0" xmlns="http://www.idpf.org/2007/opf">
+<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="pub-id">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="pub-id">test-book-id</dc:identifier>
     <dc:title>Test Book</dc:title>
     <dc:creator>Test Author</dc:creator>
+    <dc:language>en</dc:language>
+    <dc:date>2024-03-14</dc:date>
+    <meta property="dcterms:modified">2024-03-14T12:00:00Z</meta>
   </metadata>
   <manifest>
+    <item id="nav" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav"/>
   </manifest>
   <spine>
+    <itemref idref="nav"/>
   </spine>
 </package>`;
 
   await Deno.writeTextFile(`${testDir}/OEBPS/content.opf`, contentOpf);
 
-  // Create iTunesArtwork
-  const coverData = new Uint8Array([/* можно использовать маленькое тестовое изображение */]);
+  // Create iTunesArtwork (минимальное валидное JPEG изображение)
+  const coverData = new Uint8Array([
+    0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
+    0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
+    0x00, 0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09,
+    0x09, 0x08, 0x0A, 0x0C, 0x14, 0x0D, 0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12,
+    0x13, 0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D, 0x1A, 0x1C, 0x1C, 0x20,
+    0x24, 0x2E, 0x27, 0x20, 0x22, 0x2C, 0x23, 0x1C, 0x1C, 0x28, 0x37, 0x29,
+    0x2C, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39, 0x3D, 0x38, 0x32,
+    0x3C, 0x2E, 0x33, 0x34, 0x32, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01,
+    0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xFF, 0xC4, 0x00, 0x14, 0x00, 0x01,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x03, 0xFF, 0xC4, 0x00, 0x14, 0x10, 0x01, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00,
+    0x37, 0xFF, 0xD9
+  ]);
   await Deno.writeFile(`${testDir}/iTunesArtwork`, coverData);
 
   return testDir;
@@ -255,4 +307,21 @@ Deno.test('EpubProcessor handles missing content.opf', async () => {
   } finally {
     await Deno.remove(testDir, { recursive: true });
   }
+});
+
+Deno.test('EpubProcessor creates valid EPUB file', async () => {
+  const testDir = await createTestEpub();
+  const processor = createProcessorWithTempDir({
+    sourcePath: testDir,
+    verbose: false,
+  });
+
+  const { epubPath } = await processor.process();
+
+  // Проверяем валидность EPUB
+  const isValid = await validateEpub(epubPath);
+  assert(isValid, 'Should create valid EPUB file');
+
+  await Deno.remove(testDir, { recursive: true });
+  await Deno.remove(epubPath);
 });
