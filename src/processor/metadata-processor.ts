@@ -1,4 +1,9 @@
-import { METADATA_PATTERNS, PATHS, SANITIZE_PATTERNS, SANITIZE_REPLACEMENTS } from '../constants/paths.ts';
+import {
+  METADATA_PATTERNS,
+  PATHS,
+  SANITIZE_PATTERNS,
+  SANITIZE_REPLACEMENTS,
+} from '../constants/paths.ts';
 import { BaseProcessor } from './base-processor.ts';
 
 export interface BookInfo {
@@ -43,4 +48,4 @@ export class MetadataProcessor extends BaseProcessor {
     const safeAuthor = this.sanitizeString(info.author);
     return `${sourceDir}/${safeAuthor}-${safeTitle}.epub`;
   }
-} 
+}

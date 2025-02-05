@@ -8,4 +8,4 @@ export abstract class BaseProcessor {
   protected updateTempDir(newTempDir: string) {
     this.tempDir = newTempDir;
   }
-} 
+}

@@ -28,4 +28,4 @@ export class CoverProcessor extends BaseProcessor {
       throw error;
     }
   }
-} 
+}

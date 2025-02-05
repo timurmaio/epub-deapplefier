@@ -39,4 +39,4 @@ export class ContentProcessor extends BaseProcessor {
 
     await Deno.writeTextFile(contentOpfPath, updatedContent);
   }
-} 
+}

@@ -25,4 +25,4 @@ export class ArtworkProcessor extends BaseProcessor {
       }
     }
   }
-} 
+}
