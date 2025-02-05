@@ -32,7 +32,7 @@ export class ContentProcessor extends BaseProcessor {
           .replace(/>\s+</g, '><')
           .trim();
         return `${start}${cleanContent}${end}`;
-      }
+      },
     );
 
     await Deno.writeTextFile(contentOpfPath, updatedContent);

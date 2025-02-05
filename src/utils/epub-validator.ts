@@ -16,4 +16,4 @@ export async function validateEpub(epubPath: string): Promise<boolean> {
     console.error('Error running epubcheck:', error);
     return false;
   }
-} 
+}

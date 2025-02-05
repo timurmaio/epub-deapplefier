@@ -39,4 +39,4 @@ export class CleanupProcessor extends BaseProcessor {
 
     await Deno.writeTextFile(contentOpfPath, updatedContent);
   }
-} 
+}
