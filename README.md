@@ -88,32 +88,32 @@ deno task lint
 
 #### EPUB Processing Steps
 
-1. **File Preparation**
-   - Creates temporary directory with unique prefix
-   - Copies all source files
-   - Processes iTunesArtwork recursively
+1. **Cover Processing**
+   - Locates and processes iTunesArtwork
+   - Creates cover HTML and CSS files
+   - Updates content.opf with cover information
+   - Handles SVG viewbox for cover display
 
-2. **Cover Generation**
-   - Converts iTunesArtwork to JPEG format
-   - Creates SVG-based cover.xhtml
-   - Preserves existing CSS while adding cover styles
+2. **Content Processing**
+   - Validates XML structure
+   - Cleans up metadata formatting
+   - Manages content.opf updates
 
 3. **Metadata Processing**
    - Extracts title and author from content.opf
-   - Updates manifest entries for new files
-   - Adds or updates cover metadata
+   - Sanitizes strings for filenames
+   - Handles file path generation
 
-4. **File Sanitization**
-   - Handles HTML entities (e.g., `&amp;` → `and`)
-   - Removes special characters
-   - Normalizes multiple underscores
-   - Trims leading/trailing underscores
+4. **Cleanup Processing**
+   - Removes Apple-specific metadata
+   - Cleans up temporary files
+   - Handles iTunesArtwork removal
 
-5. **Error Handling**
-   - Validates XML structure in content.opf
-   - Handles missing files gracefully
-   - Ensures cleanup of temporary files
-   - Provides detailed error messages
+5. **EPUB Building**
+   - Creates proper EPUB structure
+   - Handles mimetype file requirements
+   - Manages ZIP compression levels
+   - Validates final EPUB file
 
 ## Contributing
 
