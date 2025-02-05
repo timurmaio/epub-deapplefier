@@ -1,1 +1,17 @@
+# Deno
+.deno/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Temporary files
+*~
+*.swp
+*.swo
+
+# Build output
+*.epub
+
+# Test files
+/test-data/
