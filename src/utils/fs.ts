@@ -1,5 +1,5 @@
 /**
- * Копирует директорию рекурсивно
+ * Recursively copies a directory
  */
 export async function copyDirectory(src: string, dst: string) {
   for await (const entry of Deno.readDir(src)) {
@@ -16,7 +16,7 @@ export async function copyDirectory(src: string, dst: string) {
 }
 
 /**
- * Создает директорию, если она не существует
+ * Creates a directory if it doesn't exist
  */
 export async function ensureDir(path: string) {
   try {

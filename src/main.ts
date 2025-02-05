@@ -1,9 +1,9 @@
 import { EpubProcessor } from './processor/epub-processor.ts';
 
-// Выносим исполняемую часть в отдельную функцию
+// Move execution logic to a separate function
 async function main() {
   if (Deno.args.length !== 1) {
-    console.error('Использование: deno run src/main.ts <путь_к_папке>');
+    console.error('Usage: deno run src/main.ts <path_to_folder>');
     Deno.exit(1);
   }
 
@@ -12,36 +12,36 @@ async function main() {
     const processor = new EpubProcessor({
       sourcePath: Deno.args[0],
       verbose: true,
-      keepTempDir: true, // Сохраняем директорию, чтобы очистить её после успешного создания файла
+      keepTempDir: true, // Keep directory to clean up after successful file creation
     });
 
     const result = await processor.process();
-    console.log('Epub файл успешно создан:', result.epubPath);
+    console.log('EPUB file successfully created:', result.epubPath);
     tempDir = result.tempDir;
   } catch (error) {
-    console.error('Ошибка:', error);
+    console.error('Error:', error);
     if (tempDir) {
       try {
         await Deno.remove(tempDir, { recursive: true });
       } catch (cleanupError) {
-        console.error('Ошибка при очистке временных файлов:', cleanupError);
+        console.error('Error cleaning up temporary files:', cleanupError);
       }
     }
     Deno.exit(1);
   }
 
-  // Очищаем временную директорию после успешного создания файла
+  // Clean up temporary directory after successful file creation
   if (tempDir) {
     try {
       await Deno.remove(tempDir, { recursive: true });
     } catch (cleanupError) {
-      console.error('Ошибка при очистке временных файлов:', cleanupError);
+      console.error('Error cleaning up temporary files:', cleanupError);
       Deno.exit(1);
     }
   }
 }
 
-// Запускаем main только если файл запущен напрямую
+// Run main only if file is executed directly
 if (import.meta.main) {
   main();
 }

@@ -3,26 +3,27 @@ import { copyDirectory, ensureDir } from '../../src/utils/fs.ts';
 
 // ... тесты для утилит из main_test.ts ...
 
+// Tests for utilities
 Deno.test('copyDirectory copies files and directories', async () => {
   const sourceDir = await Deno.makeTempDir();
   const targetDir = await Deno.makeTempDir();
 
-  // Создаем тестовую структуру
+  // Create test structure
   await Deno.writeTextFile(`${sourceDir}/test.txt`, 'test');
   await ensureDir(`${sourceDir}/subdir`);
   await Deno.writeTextFile(`${sourceDir}/subdir/test2.txt`, 'test2');
 
-  // Копируем
+  // Copy
   await copyDirectory(sourceDir, targetDir);
 
-  // Проверяем
+  // Verify
   const content1 = await Deno.readTextFile(`${targetDir}/test.txt`);
   const content2 = await Deno.readTextFile(`${targetDir}/subdir/test2.txt`);
 
   assertStrictEquals(content1, 'test');
   assertStrictEquals(content2, 'test2');
 
-  // Очищаем
+  // Clean up
   await Deno.remove(sourceDir, { recursive: true });
   await Deno.remove(targetDir, { recursive: true });
 });

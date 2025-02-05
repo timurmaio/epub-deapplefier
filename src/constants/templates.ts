@@ -1,4 +1,4 @@
-// HTML шаблоны
+// HTML templates
 export const HTML_TEMPLATES = {
   COVER: `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
@@ -16,7 +16,7 @@ export const HTML_TEMPLATES = {
 </html>`,
 } as const;
 
-// CSS стили
+// CSS styles
 export const CSS_TEMPLATES = {
   COVER: `
 body.cover {

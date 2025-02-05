@@ -11,7 +11,7 @@ import {
 
 import { CSS_TEMPLATES, HTML_TEMPLATES } from '../constants/templates.ts';
 
-// Типы
+// Types
 export interface BookInfo {
   title: string;
   author: string;
@@ -28,7 +28,7 @@ export interface ProcessResult {
   tempDir: string;
 }
 
-// Основной класс для обработки EPUB
+// Main class for EPUB processing
 export class EpubProcessor {
   private sourcePath: string;
   private tempDir: string;
@@ -82,7 +82,7 @@ export class EpubProcessor {
         await ensureDir(`${this.tempDir}/${PATHS.IMAGES}`);
         await Deno.copyFile(path, `${this.tempDir}/${PATHS.COVER_IMAGE}`);
         await Deno.remove(path);
-        this.log(`${PATHS.ITUNES_ARTWORK} обработан`);
+        this.log(`${PATHS.ITUNES_ARTWORK} processed`);
       }
     }
   }
@@ -134,7 +134,7 @@ export class EpubProcessor {
       }
     }
 
-    // Обновляем meta тег
+    // Update meta tag
     if (!content.includes('<meta name="cover"')) {
       updatedContent = updatedContent.replace(
         /<metadata/i,

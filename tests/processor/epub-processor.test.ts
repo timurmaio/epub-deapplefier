@@ -2,15 +2,15 @@ import { assert, assertExists } from 'jsr:@std/assert';
 import { EpubProcessor, EpubProcessorOptions } from '../../src/processor/epub-processor.ts';
 import { ensureDir } from '../../src/utils/fs.ts';
 
-// Подготовка тестовых данных
+// Test data preparation
 async function createTestEpub(): Promise<string> {
   const testDir = await Deno.makeTempDir({ prefix: 'epub-test-' });
 
-  // Создаем базовую структуру EPUB
+  // Create basic EPUB structure
   await ensureDir(`${testDir}/OEBPS`);
   await ensureDir(`${testDir}/OEBPS/images`);
 
-  // Создаем content.opf
+  // Create content.opf
   const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
 <package version="3.0" xmlns="http://www.idpf.org/2007/opf">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -25,22 +25,22 @@ async function createTestEpub(): Promise<string> {
 
   await Deno.writeTextFile(`${testDir}/OEBPS/content.opf`, contentOpf);
 
-  // Создаем iTunesArtwork
+  // Create iTunesArtwork
   const coverData = new Uint8Array([/* можно использовать маленькое тестовое изображение */]);
   await Deno.writeFile(`${testDir}/iTunesArtwork`, coverData);
 
   return testDir;
 }
 
-// Вспомогательная функция для доступа к tempDir
+// Helper function for accessing tempDir
 function createProcessorWithTempDir(options: EpubProcessorOptions) {
   return new EpubProcessor({
     ...options,
-    keepTempDir: true, // Сохраняем временную директорию для тестов
+    keepTempDir: true, // Keep temporary directory for tests
   });
 }
 
-// Тесты для EpubProcessor
+// Tests for EpubProcessor
 Deno.test('EpubProcessor processes iTunesArtwork correctly', async () => {
   const testDir = await createTestEpub();
   const processor = createProcessorWithTempDir({
@@ -50,11 +50,11 @@ Deno.test('EpubProcessor processes iTunesArtwork correctly', async () => {
 
   const { epubPath, tempDir } = await processor.process();
 
-  // Проверяем, что файл создан
+  // Check if file is created
   assertExists(await Deno.stat(epubPath));
   assertExists(await Deno.stat(`${tempDir}/OEBPS/images/cover.jpg`));
 
-  // Проверяем имя файла
+  // Check file name
   assert(
     epubPath.endsWith('Test_Author-Test_Book.epub'),
     'Generated file should have correct name pattern',
@@ -76,7 +76,7 @@ Deno.test('EpubProcessor handles missing iTunesArtwork', async () => {
   const { epubPath } = await processor.process();
   assertExists(await Deno.stat(epubPath));
 
-  // Очищаем
+  // Clean up
   await Deno.remove(testDir, { recursive: true });
   await Deno.remove(epubPath);
 });
@@ -100,7 +100,7 @@ Deno.test('EpubProcessor handles invalid content.opf', async () => {
   }
 });
 
-// Тест для проверки содержимого cover.xhtml
+// Test for checking cover.xhtml content
 Deno.test('EpubProcessor creates correct cover.xhtml', async () => {
   const testDir = await createTestEpub();
   const processor = createProcessorWithTempDir({
@@ -127,7 +127,7 @@ Deno.test('EpubProcessor creates correct cover.xhtml', async () => {
   await Deno.remove(testDir, { recursive: true });
 });
 
-// Тест для проверки стилей
+// Test for checking styles
 Deno.test('EpubProcessor creates and updates style.css correctly', async () => {
   const testDir = await createTestEpub();
   await ensureDir(`${testDir}/OEBPS`);
@@ -157,7 +157,7 @@ Deno.test('EpubProcessor creates and updates style.css correctly', async () => {
   await Deno.remove(testDir, { recursive: true });
 });
 
-// Тест для проверки обновления content.opf
+// Test for checking content.opf update
 Deno.test('EpubProcessor updates content.opf correctly', async () => {
   const testDir = await createTestEpub();
   const processor = createProcessorWithTempDir({
@@ -169,7 +169,7 @@ Deno.test('EpubProcessor updates content.opf correctly', async () => {
 
   const contentOpf = await Deno.readTextFile(`${tempDir}/OEBPS/content.opf`);
 
-  // Проверяем добавление элементов в manifest
+  // Check manifest additions
   assert(
     contentOpf.includes('id="css" href="style.css"'),
     'Should add CSS to manifest',
@@ -183,7 +183,7 @@ Deno.test('EpubProcessor updates content.opf correctly', async () => {
     'Should add cover.xhtml to manifest',
   );
 
-  // Проверяем spine и metadata
+  // Check spine and metadata
   assert(
     contentOpf.includes('<itemref idref="cover-html"'),
     'Should add cover to spine',
@@ -196,7 +196,7 @@ Deno.test('EpubProcessor updates content.opf correctly', async () => {
   await Deno.remove(testDir, { recursive: true });
 });
 
-// Тест для проверки обработки специальных символов в имени файла
+// Test for checking special characters in file name
 Deno.test('EpubProcessor handles special characters in title and author', async () => {
   const testDir = await createTestEpub();
   const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
@@ -218,7 +218,7 @@ Deno.test('EpubProcessor handles special characters in title and author', async 
 
   const { epubPath } = await processor.process();
 
-  // Проверяем основные части имени файла
+  // Check main parts of file name
   assert(
     epubPath.includes('Test_Author_and_Co'),
     'Should handle HTML entities in author name',
@@ -236,7 +236,7 @@ Deno.test('EpubProcessor handles special characters in title and author', async 
   await Deno.remove(epubPath);
 });
 
-// Тест для проверки отсутствия content.opf
+// Test for checking missing content.opf
 Deno.test('EpubProcessor handles missing content.opf', async () => {
   const testDir = await createTestEpub();
   await Deno.remove(`${testDir}/OEBPS/content.opf`);

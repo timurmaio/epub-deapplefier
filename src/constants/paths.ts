@@ -1,4 +1,4 @@
-// Пути к файлам и директориям
+// File and directory paths
 export const PATHS = {
   OEBPS: 'OEBPS',
   IMAGES: 'OEBPS/images',
@@ -9,23 +9,23 @@ export const PATHS = {
   ITUNES_ARTWORK: 'iTunesArtwork',
 } as const;
 
-// Префиксы для временных директорий
+// Prefixes for temporary directories
 export const TEMP_DIR_PREFIX = 'epub-deapplefier-';
 export const TEST_DIR_PREFIX = 'epub-test-';
 
-// XML маркеры для проверки файлов
+// XML markers for file validation
 export const XML_MARKERS = {
   XML_DECLARATION: '<?xml',
   PACKAGE_TAG: '<package',
 } as const;
 
-// Регулярные выражения для парсинга метаданных
+// Regular expressions for metadata parsing
 export const METADATA_PATTERNS = {
   TITLE: /<dc:title[^>]*>([^<]+)<\/dc:title>/,
   AUTHOR: /<dc:creator[^>]*>([^<]+)<\/dc:creator>/,
 } as const;
 
-// Обновления для content.opf
+// Updates for content.opf
 export const CONTENT_OPF_UPDATES = [
   {
     check: 'href="style.css"',
@@ -51,7 +51,7 @@ export const CONTENT_OPF_UPDATES = [
   },
 ] as const;
 
-// Шаблоны для замены специальных символов
+// Patterns for special character replacement
 export const SANITIZE_PATTERNS = {
   HTML_ENTITIES: /&amp;/g,
   SPECIAL_CHARS: /[^a-zA-Z0-9]/g,
@@ -59,7 +59,7 @@ export const SANITIZE_PATTERNS = {
   TRIM_UNDERSCORES: /^_|_$/g,
 } as const;
 
-// Замены для специальных символов
+// Replacements for special characters
 export const SANITIZE_REPLACEMENTS = {
   AMP: '_and_',
   SPECIAL: '_',
