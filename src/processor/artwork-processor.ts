@@ -10,18 +10,21 @@ export class ArtworkProcessor extends BaseProcessor {
     this.log = log;
   }
 
-  async processITunesArtwork(dir: string = this.tempDir) {
+  async processArtwork() {
+    await this.findAndProcessArtwork(this.tempDir);
+  }
+
+  private async findAndProcessArtwork(dir: string) {
     for await (const entry of Deno.readDir(dir)) {
       const path = `${dir}/${entry.name}`;
 
-      if (entry.isDirectory) {
-        await this.processITunesArtwork(path);
+      if (entry.isDirectory && !path.includes(PATHS.OEBPS)) {
+        await this.findAndProcessArtwork(path);
       } else if (entry.name === PATHS.ITUNES_ARTWORK) {
         await ensureDir(`${this.tempDir}/${PATHS.OEBPS}`);
         await ensureDir(`${this.tempDir}/${PATHS.IMAGES}`);
         await Deno.copyFile(path, `${this.tempDir}/${PATHS.COVER_IMAGE}`);
-        await Deno.remove(path);
-        this.log(`${PATHS.ITUNES_ARTWORK} processed`);
+        this.log(`Cover image created from ${PATHS.ITUNES_ARTWORK}`);
       }
     }
   }

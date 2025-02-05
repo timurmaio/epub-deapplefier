@@ -15,12 +15,6 @@ export class ContentProcessor extends BaseProcessor {
 
     let updatedContent = content;
 
-    // Удаляем Apple-специфичные meta теги
-    updatedContent = updatedContent.replace(
-      /<meta[^>]*?property="ibooks:[^"]*"[^>]*>.*?<\/meta>/g,
-      '',
-    );
-
     for (const update of CONTENT_OPF_UPDATES) {
       if (!updatedContent.includes(update.check)) {
         updatedContent = updatedContent.replace(

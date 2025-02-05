@@ -3,9 +3,9 @@ import { TEMP_DIR_PREFIX } from '../constants/paths.ts';
 
 import { ContentProcessor } from './content-processor.ts';
 import { CoverProcessor } from './cover-processor.ts';
-import { ArtworkProcessor } from './artwork-processor.ts';
 import { MetadataProcessor } from './metadata-processor.ts';
 import { EpubBuilder } from './epub-builder.ts';
+import { CleanupProcessor } from './cleanup-processor.ts';
 
 // Types
 export interface EpubProcessorOptions {
@@ -27,9 +27,9 @@ export class EpubProcessor {
   private keepTempDir: boolean;
   private contentProcessor?: ContentProcessor;
   private coverProcessor?: CoverProcessor;
-  private artworkProcessor?: ArtworkProcessor;
   private metadataProcessor?: MetadataProcessor;
   private epubBuilder?: EpubBuilder;
+  private cleanupProcessor?: CleanupProcessor;
 
   constructor(options: EpubProcessorOptions) {
     this.sourcePath = options.sourcePath;
@@ -39,9 +39,9 @@ export class EpubProcessor {
   }
 
   private initProcessors() {
+    this.coverProcessor = new CoverProcessor(this.tempDir, this.log.bind(this));
     this.contentProcessor = new ContentProcessor(this.tempDir);
-    this.coverProcessor = new CoverProcessor(this.tempDir);
-    this.artworkProcessor = new ArtworkProcessor(this.tempDir, this.log.bind(this));
+    this.cleanupProcessor = new CleanupProcessor(this.tempDir, this.log.bind(this));
     this.metadataProcessor = new MetadataProcessor(this.tempDir);
     this.epubBuilder = new EpubBuilder(this.tempDir);
   }
@@ -65,8 +65,8 @@ export class EpubProcessor {
 
     try {
       await copyDirectory(this.sourcePath, this.tempDir);
-      await this.artworkProcessor!.processITunesArtwork();
-      await this.coverProcessor!.createCoverHtml();
+      await this.coverProcessor!.createCover();
+      await this.cleanupProcessor!.cleanupAppleSpecific();
       await this.contentProcessor!.updateContentOpf();
       const epubPath = await this.createEpub();
 
