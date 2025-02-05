@@ -46,23 +46,54 @@ async function processITunesArtwork(basePath: string) {
 }
 
 async function createCoverHtml(basePath: string) {
-  const coverHtmlPath = `${basePath}/OEBPS/cover.xhtml`;
-  const coverHtml = `<?xml version="1.0" encoding="UTF-8"?>
+  const cssPath = `${basePath}/OEBPS/style.css`;
+  const coverStyles = `body.cover {
+  margin: 0px;
+  oeb-column-number: 1;
+  padding: 0px;
+}
+
+svg.cover-svg {
+  height: 100%;
+  width: 100%;
+}`;
+
+  try {
+    // Проверяем существование файла
+    try {
+      await Deno.stat(cssPath);
+      // Файл существует - добавляем стили
+      const existingCss = await Deno.readTextFile(cssPath);
+      if (!existingCss.includes('body.cover')) {
+        await Deno.writeTextFile(cssPath, existingCss + '\n' + coverStyles);
+      }
+    } catch {
+      // Файл не существует - создаем новый
+      await Deno.writeTextFile(cssPath, coverStyles);
+    }
+
+    // Создаем cover.xhtml - точно как в output_directory2
+    const coverHtmlPath = `${basePath}/OEBPS/cover.xhtml`;
+    const coverHtml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <title>Cover</title>
-  <style type="text/css">
-    body { margin: 0; padding: 0; text-align: center; }
-    img { max-width: 100%; max-height: 100vh; margin: 0; }
-  </style>
+<title/>
+<link rel="stylesheet" href="style.css" type="text/css"/>
+<link rel="stylesheet" href="style.css" type="text/css"/>
 </head>
-<body>
-  <img src="images/cover.jpg" alt="cover"/>
+<body class="cover">
+<svg xmlns="http://www.w3.org/2000/svg" class="cover-svg" viewBox="0 0 600 852">
+<image height="852" xlink:href="images/cover.jpg" width="600" xmlns:xlink="http://www.w3.org/1999/xlink"/>
+</svg>
 </body>
 </html>`;
 
-  await Deno.writeTextFile(coverHtmlPath, coverHtml);
+    await Deno.writeTextFile(coverHtmlPath, coverHtml);
+  } catch (error) {
+    console.error('Ошибка при создании файлов обложки:', error);
+    throw error;
+  }
 }
 
 async function updateContentOpf(basePath: string) {
@@ -71,6 +102,14 @@ async function updateContentOpf(basePath: string) {
     const content = await Deno.readTextFile(contentOpfPath);
     let updatedContent = content;
     
+    // Добавляем style.css в manifest, если его еще нет
+    if (!updatedContent.includes('href="style.css"')) {
+      updatedContent = updatedContent.replace(
+        /<manifest>/i,
+        '<manifest>\n    <item id="css" href="style.css" media-type="text/css"/>'
+      );
+    }
+
     // Добавляем элемент обложки в manifest, если его еще нет
     if (!updatedContent.includes('properties="cover-image"')) {
       updatedContent = updatedContent.replace(
