@@ -1,6 +1,28 @@
 {
   "tasks": {
-    "dev": "deno run --watch main.ts"
+    "start": "deno run --allow-read --allow-write --allow-run src/main.ts",
+    "test": "deno test --allow-read --allow-write --allow-run",
+    "check": "deno check src/**/*.ts",
+    "fmt": "deno fmt",
+    "lint": "deno lint"
+  },
+  "fmt": {
+    "files": {
+      "include": ["src/", "tests/"]
+    },
+    "options": {
+      "lineWidth": 100,
+      "indentWidth": 2,
+      "singleQuote": true
+    }
+  },
+  "lint": {
+    "files": {
+      "include": ["src/", "tests/"]
+    },
+    "rules": {
+      "tags": ["recommended"]
+    }
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1"

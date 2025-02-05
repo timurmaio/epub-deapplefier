@@ -35,12 +35,14 @@ export const CONTENT_OPF_UPDATES = [
   {
     check: 'properties="cover-image"',
     pattern: /<manifest>/i,
-    replacement: '<manifest>\n    <item id="cover-image" properties="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>',
+    replacement:
+      '<manifest>\n    <item id="cover-image" properties="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>',
   },
   {
     check: 'id="cover-html"',
     pattern: /<manifest>/i,
-    replacement: '<manifest>\n    <item id="cover-html" href="cover.xhtml" media-type="application/xhtml+xml"/>',
+    replacement:
+      '<manifest>\n    <item id="cover-html" href="cover.xhtml" media-type="application/xhtml+xml"/>',
   },
   {
     check: '<itemref idref="cover-html"',
@@ -63,4 +65,4 @@ export const SANITIZE_REPLACEMENTS = {
   SPECIAL: '_',
   MULTIPLE: '_',
   TRIM: '',
-} as const; 
+} as const;

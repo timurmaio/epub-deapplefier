@@ -1,15 +1,15 @@
-import { copyDirectory, ensureDir } from "./utils.ts";
+import { copyDirectory, ensureDir } from '../utils/fs.ts';
 import {
-  PATHS,
-  TEMP_DIR_PREFIX,
-  XML_MARKERS,
-  METADATA_PATTERNS,
   CONTENT_OPF_UPDATES,
+  METADATA_PATTERNS,
+  PATHS,
   SANITIZE_PATTERNS,
   SANITIZE_REPLACEMENTS,
-} from "./constants.ts";
+  TEMP_DIR_PREFIX,
+  XML_MARKERS,
+} from '../constants/paths.ts';
 
-import { HTML_TEMPLATES, CSS_TEMPLATES } from "./templates.ts";
+import { CSS_TEMPLATES, HTML_TEMPLATES } from '../constants/templates.ts';
 
 // Типы
 export interface BookInfo {
@@ -39,7 +39,7 @@ export class EpubProcessor {
     this.sourcePath = options.sourcePath;
     this.verbose = options.verbose ?? false;
     this.keepTempDir = options.keepTempDir ?? false;
-    this.tempDir = "";
+    this.tempDir = '';
   }
 
   private log(message: string) {
@@ -56,7 +56,7 @@ export class EpubProcessor {
       const authorMatch = content.match(METADATA_PATTERNS.AUTHOR);
 
       if (!titleMatch || !authorMatch) {
-        throw new Error("Missing title or author in content.opf");
+        throw new Error('Missing title or author in content.opf');
       }
 
       return {
@@ -92,7 +92,7 @@ export class EpubProcessor {
 
     try {
       await ensureDir(`${this.tempDir}/${PATHS.OEBPS}`);
-      let existingCss = "";
+      let existingCss = '';
       try {
         existingCss = await Deno.readTextFile(cssPath);
       } catch (error) {
@@ -115,10 +115,12 @@ export class EpubProcessor {
   private async updateContentOpf() {
     const contentOpfPath = `${this.tempDir}/${PATHS.CONTENT_OPF}`;
     const content = await Deno.readTextFile(contentOpfPath);
-    
-    if (!content.includes(XML_MARKERS.XML_DECLARATION) || 
-        !content.includes(XML_MARKERS.PACKAGE_TAG)) {
-      throw new Error("Invalid content.opf format");
+
+    if (
+      !content.includes(XML_MARKERS.XML_DECLARATION) ||
+      !content.includes(XML_MARKERS.PACKAGE_TAG)
+    ) {
+      throw new Error('Invalid content.opf format');
     }
 
     let updatedContent = content;
@@ -150,7 +152,7 @@ export class EpubProcessor {
 
   private async createEpub(): Promise<string> {
     const { title, author } = await this.getBookInfo();
-    
+
     const sanitizeString = (str: string) => {
       return str
         .replace(SANITIZE_PATTERNS.HTML_ENTITIES, SANITIZE_REPLACEMENTS.AMP)
@@ -164,7 +166,7 @@ export class EpubProcessor {
 
     const sourceDir = Deno.realPathSync(this.sourcePath).replace(
       /\/[^/]+$/,
-      "",
+      '',
     );
     const epubPath = `${sourceDir}/${safeAuthor}-${safeTitle}.epub`;
 
@@ -172,8 +174,8 @@ export class EpubProcessor {
     Deno.chdir(this.tempDir);
 
     try {
-      const { success, stderr } = await new Deno.Command("zip", {
-        args: ["-X", "-r", epubPath, "."],
+      const { success, stderr } = await new Deno.Command('zip', {
+        args: ['-X', '-r', epubPath, '.'],
       }).output();
 
       if (!success) {
@@ -197,7 +199,7 @@ export class EpubProcessor {
       await this.createCoverHtml();
       await this.updateContentOpf();
       const epubPath = await this.createEpub();
-      
+
       return { epubPath, tempDir: this.tempDir };
     } finally {
       if (!this.keepTempDir) {

@@ -29,4 +29,4 @@ svg.cover-svg {
   height: 100%;
   width: 100%;
 }`,
-} as const; 
+} as const;
