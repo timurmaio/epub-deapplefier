@@ -1,15 +1,14 @@
 import { copyDirectory, ensureDir } from '../utils/fs.ts';
 import {
-  CONTENT_OPF_UPDATES,
   METADATA_PATTERNS,
   PATHS,
   SANITIZE_PATTERNS,
   SANITIZE_REPLACEMENTS,
   TEMP_DIR_PREFIX,
-  XML_MARKERS,
 } from '../constants/paths.ts';
 
-import { CSS_TEMPLATES, HTML_TEMPLATES } from '../constants/templates.ts';
+import { ContentProcessor } from './content-processor.ts';
+import { CoverProcessor } from './cover-processor.ts';
 
 // Types
 export interface BookInfo {
@@ -34,12 +33,19 @@ export class EpubProcessor {
   private tempDir: string;
   private verbose: boolean;
   private keepTempDir: boolean;
+  private contentProcessor?: ContentProcessor;
+  private coverProcessor?: CoverProcessor;
 
   constructor(options: EpubProcessorOptions) {
     this.sourcePath = options.sourcePath;
     this.verbose = options.verbose ?? false;
     this.keepTempDir = options.keepTempDir ?? false;
     this.tempDir = '';
+  }
+
+  private initProcessors() {
+    this.contentProcessor = new ContentProcessor(this.tempDir);
+    this.coverProcessor = new CoverProcessor(this.tempDir);
   }
 
   private log(message: string) {
@@ -87,69 +93,6 @@ export class EpubProcessor {
     }
   }
 
-  private async createCoverHtml() {
-    const cssPath = `${this.tempDir}/${PATHS.STYLE_CSS}`;
-
-    try {
-      await ensureDir(`${this.tempDir}/${PATHS.OEBPS}`);
-      let existingCss = '';
-      try {
-        existingCss = await Deno.readTextFile(cssPath);
-      } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) {
-          throw error;
-        }
-      }
-
-      if (!existingCss.includes('body.cover')) {
-        await Deno.writeTextFile(cssPath, existingCss + '\n\n' + CSS_TEMPLATES.COVER);
-      }
-
-      await Deno.writeTextFile(`${this.tempDir}/${PATHS.COVER_XHTML}`, HTML_TEMPLATES.COVER);
-    } catch (error) {
-      console.error('Error creating cover files:', error);
-      throw error;
-    }
-  }
-
-  private async updateContentOpf() {
-    const contentOpfPath = `${this.tempDir}/${PATHS.CONTENT_OPF}`;
-    const content = await Deno.readTextFile(contentOpfPath);
-
-    if (
-      !content.includes(XML_MARKERS.XML_DECLARATION) ||
-      !content.includes(XML_MARKERS.PACKAGE_TAG)
-    ) {
-      throw new Error('Invalid content.opf format');
-    }
-
-    let updatedContent = content;
-
-    for (const update of CONTENT_OPF_UPDATES) {
-      if (!updatedContent.includes(update.check)) {
-        updatedContent = updatedContent.replace(
-          update.pattern,
-          update.replacement,
-        );
-      }
-    }
-
-    // Update meta tag
-    if (!content.includes('<meta name="cover"')) {
-      updatedContent = updatedContent.replace(
-        /<metadata/i,
-        '<metadata>\n    <meta name="cover" content="cover-image"/>',
-      );
-    } else {
-      updatedContent = updatedContent.replace(
-        /<meta name="cover" content="[^"]*"\s*\/>/,
-        '<meta name="cover" content="cover-image"/>',
-      );
-    }
-
-    await Deno.writeTextFile(contentOpfPath, updatedContent);
-  }
-
   private async createEpub(): Promise<string> {
     const { title, author } = await this.getBookInfo();
 
@@ -192,12 +135,13 @@ export class EpubProcessor {
 
   async process(): Promise<ProcessResult> {
     this.tempDir = await Deno.makeTempDir({ prefix: TEMP_DIR_PREFIX });
+    this.initProcessors();
 
     try {
       await copyDirectory(this.sourcePath, this.tempDir);
       await this.processITunesArtwork();
-      await this.createCoverHtml();
-      await this.updateContentOpf();
+      await this.coverProcessor!.createCoverHtml();
+      await this.contentProcessor!.updateContentOpf();
       const epubPath = await this.createEpub();
 
       return { epubPath, tempDir: this.tempDir };
