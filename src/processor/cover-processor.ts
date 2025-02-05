@@ -12,13 +12,13 @@ export class CoverProcessor extends BaseProcessor {
   }
 
   async createCover() {
-    // Сначала найдем и скопируем iTunesArtwork
+    // First, find and copy iTunesArtwork
     await this.findAndProcessArtwork(this.tempDir);
-
-    // Затем создадим HTML и CSS для обложки
+    
+    // Then create HTML and CSS for cover
     await this.createCoverFiles();
-
-    // Обновим content.opf для обложки
+    
+    // Update content.opf for cover
     await this.updateContentOpfForCover();
   }
 

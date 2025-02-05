@@ -24,7 +24,7 @@ export class ContentProcessor extends BaseProcessor {
       }
     }
 
-    // Удаляем пробелы и переносы строк между тегами в metadata
+    // Remove spaces and line breaks between tags in metadata
     updatedContent = updatedContent.replace(
       /(<metadata[^>]*>)([\s\S]*?)(<\/metadata>)/i,
       (_, start, content, end) => {
