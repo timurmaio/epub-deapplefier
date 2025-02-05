@@ -42,7 +42,7 @@ export const CONTENT_OPF_UPDATES = [
     check: 'id="cover-html"',
     pattern: /<manifest>/i,
     replacement:
-      '<manifest>\n    <item id="cover-html" href="cover.xhtml" media-type="application/xhtml+xml"/>',
+      '<manifest>\n    <item id="cover-html" href="cover.xhtml" properties="svg" media-type="application/xhtml+xml"/>',
   },
   {
     check: '<itemref idref="cover-html"',
