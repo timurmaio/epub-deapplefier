@@ -1,12 +1,11 @@
 import { copyDirectory } from '../utils/fs.ts';
-import {
-  TEMP_DIR_PREFIX,
-} from '../constants/paths.ts';
+import { TEMP_DIR_PREFIX } from '../constants/paths.ts';
 
 import { ContentProcessor } from './content-processor.ts';
 import { CoverProcessor } from './cover-processor.ts';
 import { ArtworkProcessor } from './artwork-processor.ts';
 import { MetadataProcessor } from './metadata-processor.ts';
+import { EpubBuilder } from './epub-builder.ts';
 
 // Types
 export interface EpubProcessorOptions {
@@ -30,6 +29,7 @@ export class EpubProcessor {
   private coverProcessor?: CoverProcessor;
   private artworkProcessor?: ArtworkProcessor;
   private metadataProcessor?: MetadataProcessor;
+  private epubBuilder?: EpubBuilder;
 
   constructor(options: EpubProcessorOptions) {
     this.sourcePath = options.sourcePath;
@@ -43,6 +43,7 @@ export class EpubProcessor {
     this.coverProcessor = new CoverProcessor(this.tempDir);
     this.artworkProcessor = new ArtworkProcessor(this.tempDir, this.log.bind(this));
     this.metadataProcessor = new MetadataProcessor(this.tempDir);
+    this.epubBuilder = new EpubBuilder(this.tempDir);
   }
 
   private log(message: string) {
@@ -55,25 +56,7 @@ export class EpubProcessor {
     const bookInfo = await this.metadataProcessor!.getBookInfo();
     const sourceDir = Deno.realPathSync(this.sourcePath).replace(/\/[^/]+$/, '');
     const epubPath = this.metadataProcessor!.getOutputPath(bookInfo, sourceDir);
-
-    const currentDir = Deno.cwd();
-    Deno.chdir(this.tempDir);
-
-    try {
-      const { success, stderr } = await new Deno.Command('zip', {
-        args: ['-X', '-r', epubPath, '.'],
-      }).output();
-
-      if (!success) {
-        throw new Error(
-          `Ошибка при создании zip: ${new TextDecoder().decode(stderr)}`,
-        );
-      }
-
-      return epubPath;
-    } finally {
-      Deno.chdir(currentDir);
-    }
+    return this.epubBuilder!.createEpub(epubPath);
   }
 
   async process(): Promise<ProcessResult> {
