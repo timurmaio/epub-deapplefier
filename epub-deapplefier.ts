@@ -6,7 +6,7 @@ if (Deno.args.length !== 1) {
 }
 
 const sourcePath = Deno.args[0];
-const targetPath = `${sourcePath}_converted`;
+const targetPath = await Deno.makeTempDir({ prefix: "epub-deapplefier-" });
 
 async function copyDirectory(src: string, dst: string) {
   for await (const entry of Deno.readDir(src)) {
@@ -158,15 +158,15 @@ async function getBookInfo(basePath: string) {
   const contentOpfPath = `${basePath}/OEBPS/content.opf`;
   try {
     const content = await Deno.readTextFile(contentOpfPath);
-    
+
     // Ищем название книги
     const titleMatch = content.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/);
     const title = titleMatch ? titleMatch[1].trim() : "unknown";
-    
+
     // Ищем автора
     const authorMatch = content.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/);
     const author = authorMatch ? authorMatch[1].trim() : "unknown";
-    
+
     return { title, author };
   } catch (error) {
     console.error("Ошибка при чтении метаданных книги:", error);
@@ -177,14 +177,17 @@ async function getBookInfo(basePath: string) {
 async function createEpub(basePath: string) {
   // Получаем информацию о книге
   const { title, author } = await getBookInfo(basePath);
-  
+
   // Создаем безопасное имя файла (убираем недопустимые символы)
   const safeTitle = title.replace(/[^a-zA-Z0-9]/g, "_");
   const safeAuthor = author.replace(/[^a-zA-Z0-9]/g, "_");
-  const epubPath = `../${safeAuthor}-${safeTitle}.epub`;
+  
+  // Получаем директорию исходного файла
+  const sourceDir = Deno.realPathSync(sourcePath).replace(/\/[^/]+$/, '');
+  // Создаем абсолютный путь для выходного файла
+  const epubPath = `${sourceDir}/${safeAuthor}-${safeTitle}.epub`;
 
   try {
-    // Сначала перейдем в рабочую директорию
     const currentDir = Deno.cwd();
     Deno.chdir(basePath);
 
@@ -223,17 +226,7 @@ try {
     throw new Error("Указанный путь не является папкой");
   }
 
-  // Создаём новую папку с постфиксом _converted
-  try {
-    await Deno.mkdir(targetPath);
-  } catch (error) {
-    if (error instanceof Deno.errors.AlreadyExists) {
-      console.error("Папка назначения уже существует:", targetPath);
-    }
-    throw error;
-  }
-
-  // Копируем содержимое папки
+  // Копируем содержимое папки во временную директорию
   await copyDirectory(sourcePath, targetPath);
   console.log("Копирование завершено успешно");
 
@@ -246,16 +239,26 @@ try {
   // Обновляем content.opf
   await updateContentOpf(targetPath);
 
-  // Создаем epub из сконвертированной папки
+  // Создаем epub из временной папки
   await createEpub(targetPath);
+
+  // В конце удаляем временную директорию
+  await Deno.remove(targetPath, { recursive: true });
 
   console.log(`Исходная папка: ${sourcePath}`);
   console.log(`Папка назначения создана: ${targetPath}`);
 } catch (error) {
+  // В случае ошибки тоже нужно удалить временную директорию
+  try {
+    await Deno.remove(targetPath, { recursive: true });
+  } catch {
+    // Игнорируем ошибки при удалении
+  }
+
   if (error instanceof Deno.errors.NotFound) {
     console.error("Папка не найдена:", sourcePath);
   } else {
-    console.error("Произошла ошибка:");
+    console.error("Произошла ошибка:", error);
   }
   Deno.exit(1);
 }
