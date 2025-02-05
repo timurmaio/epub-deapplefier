@@ -1,6 +1,7 @@
 # EPUB Deapplefier
 
-A Deno utility that converts Apple Books EPUB files to standard EPUB format by removing Apple-specific elements and creating a standard-compliant EPUB structure.
+A Deno utility that converts Apple Books EPUB files to standard EPUB format by removing
+Apple-specific elements and creating a standard-compliant EPUB structure.
 
 ## Features
 
@@ -35,6 +36,7 @@ deno run --allow-read --allow-write --allow-run src/main.ts "path/to/book.epub"
 ```
 
 The utility will:
+
 1. Create a temporary working directory
 2. Copy all files from the source EPUB
 3. Convert iTunesArtwork to cover.jpg
