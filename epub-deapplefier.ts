@@ -1,26 +1,34 @@
 import { copyDirectory, ensureDir } from "./utils.ts";
 
 // Типы
-interface BookInfo {
+export interface BookInfo {
   title: string;
   author: string;
 }
 
-interface EpubProcessorOptions {
+export interface EpubProcessorOptions {
   sourcePath: string;
   verbose?: boolean;
+  keepTempDir?: boolean;
+}
+
+export interface ProcessResult {
+  epubPath: string;
+  tempDir: string;
 }
 
 // Основной класс для обработки EPUB
-class EpubProcessor {
+export class EpubProcessor {
   private sourcePath: string;
   private tempDir: string;
   private verbose: boolean;
+  private keepTempDir: boolean;
 
   constructor(options: EpubProcessorOptions) {
     this.sourcePath = options.sourcePath;
     this.verbose = options.verbose ?? false;
-    this.tempDir = ""; // Инициализируем пустой строкой
+    this.keepTempDir = options.keepTempDir ?? false;
+    this.tempDir = "";
   }
 
   private log(message: string) {
@@ -34,17 +42,21 @@ class EpubProcessor {
     try {
       const content = await Deno.readTextFile(contentOpfPath);
       const titleMatch = content.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/);
-      const authorMatch = content.match(
-        /<dc:creator[^>]*>([^<]+)<\/dc:creator>/,
-      );
+      const authorMatch = content.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/);
+
+      if (!titleMatch || !authorMatch) {
+        throw new Error("Missing title or author in content.opf");
+      }
 
       return {
-        title: titleMatch ? titleMatch[1].trim() : "unknown",
-        author: authorMatch ? authorMatch[1].trim() : "unknown",
+        title: titleMatch[1].trim(),
+        author: authorMatch[1].trim(),
       };
     } catch (error) {
-      console.error("Ошибка при чтении метаданных книги:", error);
-      return { title: "unknown", author: "unknown" };
+      if (error instanceof Deno.errors.NotFound) {
+        throw new Error("content.opf not found");
+      }
+      throw error;
     }
   }
 
@@ -67,25 +79,34 @@ class EpubProcessor {
 
   private async createCoverHtml() {
     const cssPath = `${this.tempDir}/OEBPS/style.css`;
-    const coverStyles = `body.cover {
-      margin: 0px;
-      oeb-column-number: 1;
-      padding: 0px;
-    }
-    
-    svg.cover-svg {
-      height: 100%;
-      width: 100%;
-    }`;
+    const coverStyles = `
+body.cover {
+  margin: 0px;
+  oeb-column-number: 1;
+  padding: 0px;
+}
 
-    // Добавляем стили
-    const existingCss = await Deno.readTextFile(cssPath).catch(() => "");
-    if (!existingCss.includes("body.cover")) {
-      await Deno.writeTextFile(cssPath, existingCss + "\n" + coverStyles);
-    }
+svg.cover-svg {
+  height: 100%;
+  width: 100%;
+}`;
 
-    // Создаем cover.xhtml
-    const coverHtml = `<?xml version="1.0" encoding="UTF-8"?>
+    try {
+      await ensureDir(`${this.tempDir}/OEBPS`);
+      let existingCss = "";
+      try {
+        existingCss = await Deno.readTextFile(cssPath);
+      } catch (error) {
+        if (!(error instanceof Deno.errors.NotFound)) {
+          throw error;
+        }
+      }
+
+      if (!existingCss.includes('body.cover')) {
+        await Deno.writeTextFile(cssPath, existingCss + '\n\n' + coverStyles);
+      }
+
+      const coverHtml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -100,12 +121,22 @@ class EpubProcessor {
 </body>
 </html>`;
 
-    await Deno.writeTextFile(`${this.tempDir}/OEBPS/cover.xhtml`, coverHtml);
+      await Deno.writeTextFile(`${this.tempDir}/OEBPS/cover.xhtml`, coverHtml);
+    } catch (error) {
+      console.error('Error creating cover files:', error);
+      throw error;
+    }
   }
 
   private async updateContentOpf() {
     const contentOpfPath = `${this.tempDir}/OEBPS/content.opf`;
     const content = await Deno.readTextFile(contentOpfPath);
+    
+    // Проверяем, что это валидный XML
+    if (!content.includes('<?xml') || !content.includes('<package')) {
+      throw new Error("Invalid content.opf format");
+    }
+
     let updatedContent = content;
 
     // Добавляем необходимые элементы в manifest и metadata
@@ -162,8 +193,18 @@ class EpubProcessor {
 
   private async createEpub(): Promise<string> {
     const { title, author } = await this.getBookInfo();
-    const safeTitle = title.replace(/[^a-zA-Z0-9]/g, "_");
-    const safeAuthor = author.replace(/[^a-zA-Z0-9]/g, "_");
+    
+    // Более предсказуемая замена специальных символов
+    const sanitizeString = (str: string) => {
+      return str
+        .replace(/&amp;/g, '_and_')  // Сначала обрабатываем HTML entities
+        .replace(/[^a-zA-Z0-9]/g, '_') // Затем все остальные спецсимволы
+        .replace(/_+/g, '_')  // Заменяем множественные _ на одинарный
+        .replace(/^_|_$/g, ''); // Убираем _ в начале и конце
+    };
+
+    const safeTitle = sanitizeString(title);
+    const safeAuthor = sanitizeString(author);
 
     const sourceDir = Deno.realPathSync(this.sourcePath).replace(
       /\/[^/]+$/,
@@ -191,7 +232,7 @@ class EpubProcessor {
     }
   }
 
-  async process(): Promise<string> {
+  async process(): Promise<ProcessResult> {
     this.tempDir = await Deno.makeTempDir({ prefix: "epub-deapplefier-" });
 
     try {
@@ -200,28 +241,12 @@ class EpubProcessor {
       await this.createCoverHtml();
       await this.updateContentOpf();
       const epubPath = await this.createEpub();
-      return epubPath;
+      
+      return { epubPath, tempDir: this.tempDir };
     } finally {
-      await Deno.remove(this.tempDir, { recursive: true });
+      if (!this.keepTempDir) {
+        await Deno.remove(this.tempDir, { recursive: true });
+      }
     }
   }
-}
-
-// Основной код
-if (Deno.args.length !== 1) {
-  console.error("Использование: deno run epub-deapplefier.ts <путь_к_папке>");
-  Deno.exit(1);
-}
-
-try {
-  const processor = new EpubProcessor({
-    sourcePath: Deno.args[0],
-    verbose: true,
-  });
-
-  const epubPath = await processor.process();
-  console.log("Epub файл успешно создан:", epubPath);
-} catch (error) {
-  console.error("Ошибка:", error);
-  Deno.exit(1);
 }
