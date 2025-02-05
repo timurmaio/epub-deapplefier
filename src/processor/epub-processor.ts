@@ -1,4 +1,4 @@
-import { copyDirectory, ensureDir } from '../utils/fs.ts';
+import { copyDirectory } from '../utils/fs.ts';
 import {
   METADATA_PATTERNS,
   PATHS,
@@ -9,6 +9,7 @@ import {
 
 import { ContentProcessor } from './content-processor.ts';
 import { CoverProcessor } from './cover-processor.ts';
+import { ArtworkProcessor } from './artwork-processor.ts';
 
 // Types
 export interface BookInfo {
@@ -35,6 +36,7 @@ export class EpubProcessor {
   private keepTempDir: boolean;
   private contentProcessor?: ContentProcessor;
   private coverProcessor?: CoverProcessor;
+  private artworkProcessor?: ArtworkProcessor;
 
   constructor(options: EpubProcessorOptions) {
     this.sourcePath = options.sourcePath;
@@ -46,6 +48,7 @@ export class EpubProcessor {
   private initProcessors() {
     this.contentProcessor = new ContentProcessor(this.tempDir);
     this.coverProcessor = new CoverProcessor(this.tempDir);
+    this.artworkProcessor = new ArtworkProcessor(this.tempDir, this.log.bind(this));
   }
 
   private log(message: string) {
@@ -74,22 +77,6 @@ export class EpubProcessor {
         throw new Error(`${PATHS.CONTENT_OPF} not found`);
       }
       throw error;
-    }
-  }
-
-  private async processITunesArtwork(dir: string = this.tempDir) {
-    for await (const entry of Deno.readDir(dir)) {
-      const path = `${dir}/${entry.name}`;
-
-      if (entry.isDirectory) {
-        await this.processITunesArtwork(path);
-      } else if (entry.name === PATHS.ITUNES_ARTWORK) {
-        await ensureDir(`${this.tempDir}/${PATHS.OEBPS}`);
-        await ensureDir(`${this.tempDir}/${PATHS.IMAGES}`);
-        await Deno.copyFile(path, `${this.tempDir}/${PATHS.COVER_IMAGE}`);
-        await Deno.remove(path);
-        this.log(`${PATHS.ITUNES_ARTWORK} processed`);
-      }
     }
   }
 
@@ -139,7 +126,7 @@ export class EpubProcessor {
 
     try {
       await copyDirectory(this.sourcePath, this.tempDir);
-      await this.processITunesArtwork();
+      await this.artworkProcessor!.processITunesArtwork();
       await this.coverProcessor!.createCoverHtml();
       await this.contentProcessor!.updateContentOpf();
       const epubPath = await this.createEpub();
