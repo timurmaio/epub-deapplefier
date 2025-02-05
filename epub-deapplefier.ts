@@ -1,7 +1,7 @@
 // Проверяем, что аргумент с путём к папке был передан
 if (Deno.args.length !== 1) {
-  console.error('Пожалуйста, укажите путь к папке в качестве аргумента');
-  console.error('Использование: deno run epub-deapplefier.ts <путь_к_папке>');
+  console.error("Пожалуйста, укажите путь к папке в качестве аргумента");
+  console.error("Использование: deno run epub-deapplefier.ts <путь_к_папке>");
   Deno.exit(1);
 }
 
@@ -27,19 +27,19 @@ async function copyDirectory(src: string, dst: string) {
 async function processITunesArtwork(basePath: string) {
   for await (const entry of Deno.readDir(basePath)) {
     const path = `${basePath}/${entry.name}`;
-    
+
     if (entry.isDirectory) {
       await processITunesArtwork(path);
-    } else if (entry.name === 'iTunesArtwork') {
-      console.log('Обрабатываем iTunesArtwork...');
+    } else if (entry.name === "iTunesArtwork") {
+      console.log("Обрабатываем iTunesArtwork...");
       const imagesPath = `${basePath}/OEBPS/images`;
       await Deno.mkdir(`${basePath}/OEBPS`, { recursive: true });
       await Deno.mkdir(imagesPath, { recursive: true });
       await Deno.copyFile(path, `${imagesPath}/cover.jpg`);
       await Deno.remove(path);
-      console.log('iTunesArtwork перемещен в OEBPS/images/cover.jpg');
-    } else if (entry.name === 'iTunesMetadata.plist') {
-      console.log('Удаляем iTunesMetadata.plist');
+      console.log("iTunesArtwork перемещен в OEBPS/images/cover.jpg");
+    } else if (entry.name === "iTunesMetadata.plist") {
+      console.log("Удаляем iTunesMetadata.plist");
       await Deno.remove(path);
     }
   }
@@ -64,8 +64,8 @@ svg.cover-svg {
       await Deno.stat(cssPath);
       // Файл существует - добавляем стили
       const existingCss = await Deno.readTextFile(cssPath);
-      if (!existingCss.includes('body.cover')) {
-        await Deno.writeTextFile(cssPath, existingCss + '\n' + coverStyles);
+      if (!existingCss.includes("body.cover")) {
+        await Deno.writeTextFile(cssPath, existingCss + "\n" + coverStyles);
       }
     } catch {
       // Файл не существует - создаем новый
@@ -91,7 +91,7 @@ svg.cover-svg {
 
     await Deno.writeTextFile(coverHtmlPath, coverHtml);
   } catch (error) {
-    console.error('Ошибка при создании файлов обложки:', error);
+    console.error("Ошибка при создании файлов обложки:", error);
     throw error;
   }
 }
@@ -101,12 +101,12 @@ async function updateContentOpf(basePath: string) {
   try {
     const content = await Deno.readTextFile(contentOpfPath);
     let updatedContent = content;
-    
+
     // Добавляем style.css в manifest, если его еще нет
     if (!updatedContent.includes('href="style.css"')) {
       updatedContent = updatedContent.replace(
         /<manifest>/i,
-        '<manifest>\n    <item id="css" href="style.css" media-type="text/css"/>'
+        '<manifest>\n    <item id="css" href="style.css" media-type="text/css"/>',
       );
     }
 
@@ -114,7 +114,7 @@ async function updateContentOpf(basePath: string) {
     if (!updatedContent.includes('properties="cover-image"')) {
       updatedContent = updatedContent.replace(
         /<manifest>/i,
-        '<manifest>\n    <item id="cover-image" properties="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>'
+        '<manifest>\n    <item id="cover-image" properties="cover-image" href="images/cover.jpg" media-type="image/jpeg"/>',
       );
     }
 
@@ -122,7 +122,7 @@ async function updateContentOpf(basePath: string) {
     if (!updatedContent.includes('id="cover-html"')) {
       updatedContent = updatedContent.replace(
         /<manifest>/i,
-        '<manifest>\n    <item id="cover-html" href="cover.xhtml" media-type="application/xhtml+xml"/>'
+        '<manifest>\n    <item id="cover-html" href="cover.xhtml" media-type="application/xhtml+xml"/>',
       );
     }
 
@@ -130,7 +130,7 @@ async function updateContentOpf(basePath: string) {
     if (!updatedContent.includes('<itemref idref="cover-html"')) {
       updatedContent = updatedContent.replace(
         /<spine[^>]*>/i,
-        '$&\n    <itemref idref="cover-html"/>'
+        '$&\n    <itemref idref="cover-html"/>',
       );
     }
 
@@ -138,41 +138,58 @@ async function updateContentOpf(basePath: string) {
     if (!content.includes('<meta name="cover"')) {
       updatedContent = updatedContent.replace(
         /<metadata/i,
-        '<metadata>\n    <meta name="cover" content="cover-image"/>'
+        '<metadata>\n    <meta name="cover" content="cover-image"/>',
       );
     } else {
       updatedContent = updatedContent.replace(
         /<meta name="cover" content="[^"]*"\s*\/>/,
-        '<meta name="cover" content="cover-image"/>'
+        '<meta name="cover" content="cover-image"/>',
       );
     }
-    
+
     await Deno.writeTextFile(contentOpfPath, updatedContent);
-    console.log('content.opf обновлен: обложка установлена');
+    console.log("content.opf обновлен: обложка установлена");
   } catch (error) {
-    console.error('Ошибка при обновлении content.opf:', error);
+    console.error("Ошибка при обновлении content.opf:", error);
   }
 }
 
 async function createEpub(basePath: string) {
-  // Получаем путь к исходной папке (без _converted)
-  const originalPath = basePath.replace('_converted', '');
-  const epubPath = `${originalPath}_fixed.epub`;
+  // Получаем абсолютный путь к исходному файлу
+
+  const sourcePath = Deno.args[0];
+  console.log(sourcePath);
+  // Создаем имя выходного файла на том же уровне
+  const epubPath = "../" + sourcePath + "-converted.epub";
 
   try {
+    // Сначала перейдем в рабочую директорию
+    const currentDir = Deno.cwd();
+    Deno.chdir(basePath);
+
     const zipCmd = new Deno.Command("zip", {
       args: ["-X", "-r", epubPath, "."],
-      cwd: basePath,
     });
-    const output = await zipCmd.output();
-    
-    if (!output.success) {
-      throw new Error(`Ошибка при создании zip: ${new TextDecoder().decode(output.stderr)}`);
+
+    const { success, stdout, stderr } = await zipCmd.output();
+
+    // Возвращаемся в исходную директорию
+    Deno.chdir(currentDir);
+
+    if (!success) {
+      const errorMessage = new TextDecoder().decode(stderr);
+      console.error("Вывод zip команды:", errorMessage);
+      throw new Error(`Ошибка при создании zip: ${errorMessage}`);
     }
-    
-    console.log('Epub файл создан:', epubPath);
+
+    const output = new TextDecoder().decode(stdout);
+    console.log("Вывод zip команды:", output);
+    console.log("Epub файл создан:", epubPath);
   } catch (error) {
-    console.error('Ошибка при создании epub:', error);
+    console.error("Ошибка при создании epub:", error);
+    if (error instanceof Error) {
+      console.error("Детали ошибки:", error.message);
+    }
     throw error;
   }
 }
@@ -180,9 +197,9 @@ async function createEpub(basePath: string) {
 try {
   // Проверяем существование исходной папки
   const sourceInfo = await Deno.stat(sourcePath);
-  
+
   if (!sourceInfo.isDirectory) {
-    throw new Error('Указанный путь не является папкой');
+    throw new Error("Указанный путь не является папкой");
   }
 
   // Создаём новую папку с постфиксом _converted
@@ -190,21 +207,21 @@ try {
     await Deno.mkdir(targetPath);
   } catch (error) {
     if (error instanceof Deno.errors.AlreadyExists) {
-      console.error('Папка назначения уже существует:', targetPath);
+      console.error("Папка назначения уже существует:", targetPath);
     }
     throw error;
   }
 
   // Копируем содержимое папки
   await copyDirectory(sourcePath, targetPath);
-  console.log('Копирование завершено успешно');
+  console.log("Копирование завершено успешно");
 
   // Обрабатываем iTunesArtwork в новой папке
   await processITunesArtwork(targetPath);
-  
+
   // Создаем cover.xhtml
   await createCoverHtml(targetPath);
-  
+
   // Обновляем content.opf
   await updateContentOpf(targetPath);
 
@@ -213,12 +230,11 @@ try {
 
   console.log(`Исходная папка: ${sourcePath}`);
   console.log(`Папка назначения создана: ${targetPath}`);
-
 } catch (error) {
   if (error instanceof Deno.errors.NotFound) {
-    console.error('Папка не найдена:', sourcePath);
+    console.error("Папка не найдена:", sourcePath);
   } else {
-    console.error('Произошла ошибка:');
+    console.error("Произошла ошибка:");
   }
   Deno.exit(1);
 }
